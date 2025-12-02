@@ -113,6 +113,28 @@ class MessageStreamResponse(StreamResponse):
     answer: str
     from_variable_selector: list[str] | None = None
 
+    # Extended fields for Agent/Tool streaming (imported at runtime to avoid circular import)
+    chunk_type: str | None = None
+    """type of the chunk: text, tool_call, tool_result, thought"""
+
+    # Tool call fields (when chunk_type == "tool_call")
+    tool_call_id: str | None = None
+    """unique identifier for this tool call"""
+    tool_name: str | None = None
+    """name of the tool being called"""
+    tool_arguments: str | None = None
+    """accumulated tool arguments JSON"""
+
+    # Tool result fields (when chunk_type == "tool_result")
+    tool_files: list[str] | None = None
+    """file IDs produced by tool"""
+    tool_error: str | None = None
+    """error message if tool failed"""
+
+    # Thought fields (when chunk_type == "thought")
+    round_index: int | None = None
+    """current iteration round"""
+
 
 class MessageAudioStreamResponse(StreamResponse):
     """
@@ -586,7 +608,7 @@ class ChunkType(StrEnum):
     """Stream chunk type for LLM-related events."""
 
     TEXT = "text"  # Normal text streaming
-    FUNCTION_CALL = "function_call"  # Function call arguments streaming
+    TOOL_CALL = "tool_call"  # Tool call arguments streaming
     TOOL_RESULT = "tool_result"  # Tool execution result
     THOUGHT = "thought"  # Agent thinking process (ReAct)
 
@@ -608,7 +630,7 @@ class TextChunkStreamResponse(StreamResponse):
         chunk_type: ChunkType = ChunkType.TEXT
         """type of the chunk"""
 
-        # Function call fields (when chunk_type == FUNCTION_CALL)
+        # Tool call fields (when chunk_type == TOOL_CALL)
         tool_call_id: str | None = None
         """unique identifier for this tool call"""
         tool_name: str | None = None

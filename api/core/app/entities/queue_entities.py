@@ -181,7 +181,7 @@ class ChunkType(StrEnum):
     """Stream chunk type for LLM-related events."""
 
     TEXT = "text"  # Normal text streaming
-    FUNCTION_CALL = "function_call"  # Function call arguments streaming
+    TOOL_CALL = "tool_call"  # Tool call arguments streaming
     TOOL_RESULT = "tool_result"  # Tool execution result
     THOUGHT = "thought"  # Agent thinking process (ReAct)
 
@@ -204,7 +204,7 @@ class QueueTextChunkEvent(AppQueueEvent):
     chunk_type: ChunkType = ChunkType.TEXT
     """type of the chunk"""
 
-    # Function call fields (when chunk_type == FUNCTION_CALL)
+    # Tool call fields (when chunk_type == TOOL_CALL)
     tool_call_id: str | None = None
     """unique identifier for this tool call"""
     tool_name: str | None = None

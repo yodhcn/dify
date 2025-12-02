@@ -407,7 +407,16 @@ class AdvancedChatAppGenerateTaskPipeline(GraphRuntimeStateSupport):
 
         self._task_state.answer += delta_text
         yield self._message_cycle_manager.message_to_stream_response(
-            answer=delta_text, message_id=self._message_id, from_variable_selector=event.from_variable_selector
+            answer=delta_text,
+            message_id=self._message_id,
+            from_variable_selector=event.from_variable_selector,
+            chunk_type=event.chunk_type.value if event.chunk_type else None,
+            tool_call_id=event.tool_call_id,
+            tool_name=event.tool_name,
+            tool_arguments=event.tool_arguments,
+            tool_files=event.tool_files,
+            tool_error=event.tool_error,
+            round_index=event.round_index,
         )
 
     def _handle_iteration_start_event(

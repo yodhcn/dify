@@ -73,6 +73,9 @@ from core.workflow.node_events import (
     RunRetrieverResourceEvent,
     StreamChunkEvent,
     StreamCompletedEvent,
+    ThoughtChunkEvent,
+    ToolCallChunkEvent,
+    ToolResultChunkEvent,
 )
 from core.workflow.nodes.base.entities import BaseNodeData, RetryConfig, VariableSelector
 from core.workflow.nodes.base.node import Node
@@ -288,9 +291,6 @@ class LLMNode(Node):
 
             for event in generator:
                 if isinstance(event, StreamChunkEvent):
-                    yield event
-                elif isinstance(event, AgentLogEvent):
-                    # Pass through agent log events from tool invocation
                     yield event
                 elif isinstance(event, StreamCompletedEvent):
                     # If we receive a StreamCompletedEvent from tool invocation,
@@ -1419,11 +1419,14 @@ class LLMNode(Node):
         finish_reason = None
         agent_result: AgentResult | None = None
 
+        # Track current round for ThoughtChunkEvent
+        current_round = 1
+
         # Process each output from strategy
         try:
             for output in outputs:
                 if isinstance(output, AgentLog):
-                    # Store agent log event for metadata
+                    # Store agent log event for metadata (no longer yielded, StreamChunkEvent contains the info)
                     agent_log_event = AgentLogEvent(
                         message_id=output.id,
                         label=output.label,
@@ -1447,17 +1450,83 @@ class LLMNode(Node):
                     else:
                         agent_logs.append(agent_log_event)
 
-                    yield agent_log_event
+                    # Note: AgentLogEvent is no longer yielded here as StreamChunkEvent
+                    # (ToolCallChunkEvent, ToolResultChunkEvent, ThoughtChunkEvent)
+                    # already contains the corresponding information for streaming.
+
+                    # Extract round number from ROUND log type
+                    if output.log_type == AgentLog.LogType.ROUND:
+                        round_index = output.data.get("round_index")
+                        if isinstance(round_index, int):
+                            current_round = round_index
+
+                    # Emit tool call events when tool call starts
+                    if output.log_type == AgentLog.LogType.TOOL_CALL and output.status == AgentLog.LogStatus.START:
+                        tool_name = output.data.get("tool_name", "")
+                        tool_call_id = output.data.get("tool_call_id", "")
+                        tool_args = output.data.get("tool_args", {})
+                        tool_arguments = json.dumps(tool_args) if tool_args else ""
+
+                        yield ToolCallChunkEvent(
+                            selector=[self._node_id, "tool_calls"],
+                            chunk=tool_arguments,
+                            tool_call_id=tool_call_id,
+                            tool_name=tool_name,
+                            tool_arguments=tool_arguments,
+                            is_final=True,
+                        )
+
+                    # Emit tool result events when tool call completes
+                    if output.log_type == AgentLog.LogType.TOOL_CALL and output.status == AgentLog.LogStatus.SUCCESS:
+                        tool_name = output.data.get("tool_name", "")
+                        tool_output = output.data.get("output", "")
+                        tool_call_id = output.data.get("tool_call_id", "")
+                        tool_files = []
+                        tool_error = None
+
+                        # Extract file IDs if present
+                        files_data = output.data.get("files")
+                        if files_data and isinstance(files_data, list):
+                            tool_files = files_data
+
+                        # Check for error in meta
+                        meta = output.data.get("meta")
+                        if meta and isinstance(meta, dict) and meta.get("error"):
+                            tool_error = meta.get("error")
+
+                        yield ToolResultChunkEvent(
+                            selector=[self._node_id, "tool_results"],
+                            chunk=str(tool_output) if tool_output else "",
+                            tool_call_id=tool_call_id,
+                            tool_name=tool_name,
+                            tool_files=tool_files,
+                            tool_error=tool_error,
+                            is_final=True,
+                        )
+
                 elif isinstance(output, LLMResultChunk):
-                    # Handle LLM result chunks
-                    if output.delta.message and output.delta.message.content:
-                        chunk_text = output.delta.message.content
+                    # Handle LLM result chunks - only process text content
+                    message = output.delta.message
+
+                    # Handle text content
+                    if message and message.content:
+                        chunk_text = message.content
                         if isinstance(chunk_text, list):
                             # Extract text from content list
                             chunk_text = "".join(getattr(c, "data", str(c)) for c in chunk_text)
                         else:
                             chunk_text = str(chunk_text)
                         text += chunk_text
+
+                        # Emit thought event for agent thinking process
+                        yield ThoughtChunkEvent(
+                            selector=[self._node_id, "thought"],
+                            chunk=chunk_text,
+                            round_index=current_round,
+                            is_final=False,
+                        )
+
+                        # Also emit regular text event for backward compatibility
                         yield StreamChunkEvent(
                             selector=[self._node_id, "text"],
                             chunk=chunk_text,
