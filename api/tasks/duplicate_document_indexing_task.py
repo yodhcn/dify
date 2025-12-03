@@ -38,17 +38,13 @@ def duplicate_document_indexing_task(dataset_id: str, document_ids: list):
 
 
 def _duplicate_document_indexing_task_with_tenant_queue(
-    tenant_id: str,
-    dataset_id: str,
-    document_ids: Sequence[str],
-    task_func: Callable[[str, str, Sequence[str]], None]
+    tenant_id: str, dataset_id: str, document_ids: Sequence[str], task_func: Callable[[str, str, Sequence[str]], None]
 ):
     try:
         _duplicate_document_indexing_task(dataset_id, document_ids)
     except Exception:
         logger.exception(
-            "Error processing duplicate document indexing %s for tenant %s: %s",
-            dataset_id, tenant_id, document_ids
+            "Error processing duplicate document indexing %s for tenant %s: %s", dataset_id, tenant_id, document_ids
         )
     finally:
         tenant_isolated_task_queue = TenantIsolatedTaskQueue(tenant_id, "duplicate_document_indexing")
@@ -172,10 +168,7 @@ def normal_duplicate_document_indexing_task(tenant_id: str, dataset_id: str, doc
 
     Usage: normal_duplicate_document_indexing_task.delay(tenant_id, dataset_id, document_ids)
     """
-    logger.info(
-        "normal duplicate document indexing task received: %s - %s - %s",
-        tenant_id, dataset_id, document_ids
-    )
+    logger.info("normal duplicate document indexing task received: %s - %s - %s", tenant_id, dataset_id, document_ids)
     _duplicate_document_indexing_task_with_tenant_queue(
         tenant_id, dataset_id, document_ids, normal_duplicate_document_indexing_task
     )
@@ -191,10 +184,7 @@ def priority_duplicate_document_indexing_task(tenant_id: str, dataset_id: str, d
 
     Usage: priority_duplicate_document_indexing_task.delay(tenant_id, dataset_id, document_ids)
     """
-    logger.info(
-        "priority duplicate document indexing task received: %s - %s - %s",
-        tenant_id, dataset_id, document_ids
-    )
+    logger.info("priority duplicate document indexing task received: %s - %s - %s", tenant_id, dataset_id, document_ids)
     _duplicate_document_indexing_task_with_tenant_queue(
         tenant_id, dataset_id, document_ids, priority_duplicate_document_indexing_task
     )

@@ -750,9 +750,7 @@ class TestDuplicateDocumentIndexingTasks:
         mock_task_func = MagicMock()
 
         # Act: Execute the wrapper function
-        _duplicate_document_indexing_task_with_tenant_queue(
-            tenant_id, dataset_id, document_ids, mock_task_func
-        )
+        _duplicate_document_indexing_task_with_tenant_queue(tenant_id, dataset_id, document_ids, mock_task_func)
 
         # Assert: Verify next task was scheduled
         mock_queue.pull_tasks.assert_called_once()
@@ -763,4 +761,3 @@ class TestDuplicateDocumentIndexingTasks:
             document_ids=document_ids,
         )
         mock_queue.delete_task_key.assert_not_called()
-

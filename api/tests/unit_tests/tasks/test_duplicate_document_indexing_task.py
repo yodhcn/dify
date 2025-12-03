@@ -565,4 +565,3 @@ class TestPriorityDuplicateDocumentIndexingTask:
         mock_wrapper_func.assert_called_once_with(
             tenant_id, dataset_id, document_ids, priority_duplicate_document_indexing_task
         )
-
