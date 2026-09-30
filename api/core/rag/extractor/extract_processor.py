@@ -5,6 +5,7 @@ from typing import Literal, overload
 from urllib.parse import unquote
 
 from sqlalchemy.orm import Session
+from unstructured.file_utils.filetype import detect_filetype, FileType
 
 from configs import dify_config
 from core.db.session_factory import get_session_maker
@@ -168,9 +169,13 @@ class ExtractProcessor:
                         extractor = HtmlExtractor(file_path)
                     elif file_extension == ".docx":
                         assert upload_file is not None
-                        extractor = WordExtractor(
-                            file_path, upload_file.tenant_id, upload_file.created_by, session=session
-                        )
+                        detected_file_type = _detect_file_type(file_path)
+                        if detected_file_type == FileType.DOC:
+                            extractor = UnstructuredWordExtractor(file_path, unstructured_api_url, unstructured_api_key)
+                        else:
+                            extractor = WordExtractor(
+                                file_path, upload_file.tenant_id, upload_file.created_by, session=session
+                            )
                     elif file_extension == ".doc":
                         extractor = UnstructuredWordExtractor(file_path, unstructured_api_url, unstructured_api_key)
                     elif file_extension == ".csv":
